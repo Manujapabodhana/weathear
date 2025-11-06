@@ -60,7 +60,9 @@ async function connectMongo() {
     console.log('[DB] Connected to MongoDB')
   } catch (err) {
     console.error('[DB] Connection error:', err.message)
-    process.exit(1) // Fail fast—don’t start a broken server
+    console.warn('[WARN] Continuing without DB connection (development fallback).')
+    // Do NOT exit the process here. Keep the server running so health checks and
+    // non-db endpoints stay available during development or if DNS/network fails.
   }
 }
 
