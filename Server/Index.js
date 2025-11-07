@@ -1,119 +1,63 @@
-// Load environment variables as early as possible
-require('dotenv').config()
+import express from "express";
+import axios from "axios";
+import NodeCache from "node-cache";
+import dotenv from "dotenv";
+import cors from "cors";
+import fs from "fs";
 
-const express = require('express')
-const cors = require('cors')
-const mongoose = require('mongoose')
+dotenv.config();
 
-/**
- * 1) Read env
- */
-const PORT = process.env.PORT || 4000
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN
-const MONGO_URI = process.env.MONGO_URI
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-if (!CLIENT_ORIGIN) {
-  console.warn('[WARN] CLIENT_ORIGIN not set. CORS will be wide-open in dev.')
+const cache = new NodeCache({ stdTTL: 300 }); // cache for 5 minutes
+
+// Load city codes from JSON
+const citiesData = JSON.parse(fs.readFileSync("./cities.json", "utf-8"));
+const cityIds = citiesData.List.map(c => c.CityCode);
+
+const OWM_BASE = process.env.OWM_BASE_URL;  // <-- moved to .env
+const API_KEY = process.env.OWM_API_KEY;
+
+async function fetchWeatherForCity(id) {
+  const key = `weather_${id}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const url = `${OWM_BASE}?id=${id}&appid=${API_KEY}&units=metric`;
+  const { data } = await axios.get(url);
+
+  const pruned = {
+    id,
+    name: data.name,
+    description: data.weather?.[0]?.description ?? "",
+    temp: data.main?.temp ?? null
+  };
+
+  cache.set(key, pruned);
+  return pruned;
 }
-if (!MONGO_URI) {
-  console.error('[ERROR] MONGO_URI is required')
-  process.exit(1)
-}
 
-/**
- * 2) Create app & core middleware
- */
-const app = express()
-
-// CORS: allow only your frontend origin in production.
-// In dev, if CLIENT_ORIGIN is missing, allow localhost just to boot.
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // Allow tools like curl/Postman (no origin)
-      if (!origin) return cb(null, true)
-      if (!CLIENT_ORIGIN) {
-        // Dev fallback: allow http://localhost:5173
-        return /^http:\/\/localhost:5173$/.test(origin)
-          ? cb(null, true)
-          : cb(new Error('Not allowed by CORS'))
-      }
-      // Strict: must match env
-      return origin === CLIENT_ORIGIN
-        ? cb(null, true)
-        : cb(new Error('Not allowed by CORS'))
-    },
-    credentials: true
-  })
-)
-
-app.use(express.json())
-
-/**
- * 3) Connect to MongoDB once on startup
- */
-async function connectMongo() {
+app.get("/api/weather", async (req, res) => {
   try {
-    await mongoose.connect(MONGO_URI, {
-      // You can add options here if needed
-    })
-    console.log('[DB] Connected to MongoDB')
+    const results = await Promise.all(cityIds.map(fetchWeatherForCity));
+    res.json({ cities: results });
   } catch (err) {
-    console.error('[DB] Connection error:', err.message)
-    console.warn('[WARN] Continuing without DB connection (development fallback).')
-    // Do NOT exit the process here. Keep the server running so health checks and
-    // non-db endpoints stay available during development or if DNS/network fails.
+    console.error(err?.response?.data || err.message);
+    res.status(500).json({ error: "Failed to fetch weather" });
   }
-}
+});
 
-/**
- * 4) Routes
- */
+app.get("/api/weather/:id", async (req, res) => {
+  try {
+    const result = await fetchWeatherForCity(req.params.id);
+    res.json(result);
+  } catch (err) {
+    console.error(err?.response?.data || err.message);
+    res.status(500).json({ error: "Failed to fetch weather" });
+  }
+});
 
-// Health-check route: quick sanity check for uptime, CORS, routing.
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    ok: true,
-    time: new Date().toISOString(),
-    env: 'development', // flip to 'production' when you deploy
-  })
-})
-
-/**
- * 5) 404 handler (for unknown routes)
- */
-app.use((req, res, next) => {
-  res.status(404).json({
-    error: 'Not Found',
-    path: req.originalUrl
-  })
-})
-
-/**
- * 6) Centralized error handler
- * If any route/middleware calls next(err), it ends up here.
- */
-app.use((err, req, res, next) => {
-  console.error('[ERROR]', err.message)
-  const status = err.status || 500
-  res.status(status).json({
-    error: status === 500 ? 'Internal Server Error' : err.message
-  })
-})
-
-/**
- * 7) Boot sequence: connect DB → start server
- */
-async function start() {
-  console.log('[BOOT] Starting server...')
-  console.log(`[BOOT] ENV: PORT=${PORT}`)
-  console.log(`[BOOT] ENV: CLIENT_ORIGIN=${CLIENT_ORIGIN || '(not set, dev fallback)'}`)
-
-  await connectMongo()
-
-  app.listen(PORT, () => {
-    console.log(`[BOOT] API running on http://localhost:${PORT}`)
-  })
-}
-
-start()
+const port = process.env.PORT || 4000;
+app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
