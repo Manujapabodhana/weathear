@@ -39,8 +39,8 @@ export default function WeatherCard({ data, onOpen }){
           <div className="metaItem"><span>Direction:</span><span>{toDeg(data.wind_deg)}</span></div>
         </div>
         <div className="metaCol">
-          <div className="metaItem"><span>Sunrise:</span><span>{toClock(data.sunrise)}</span></div>
-          <div className="metaItem"><span>Sunset:</span><span>{toClock(data.sunset)}</span></div>
+          <div className="metaItem"><span>Sunrise:</span><span>{toClock(data.sunrise, data.timezone)}</span></div>
+          <div className="metaItem"><span>Sunset:</span><span>{toClock(data.sunset, data.timezone)}</span></div>
         </div>
       </div>
     </div>
