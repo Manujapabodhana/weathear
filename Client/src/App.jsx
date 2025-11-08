@@ -1,66 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import './App.css';
-import Header from './components/Header';
-import SearchBar from './components/SearchBar';
-import WeatherGrid from './components/WeatherGrid';
+import { useEffect, useState } from "react";
+import axios from "axios";
+import "./App.css";
+import Header from "./components/Header";
+import SearchBar from "./components/SearchBar";
+import WeatherGrid from "./components/WeatherGrid";
+import WeatherDetail from "./components/WeatherDetail";
 
-function App() {
+export default function App(){
   const [cities, setCities] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    fetchWeatherData();
-  }, []);
-
-  const fetchWeatherData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('http://localhost:4000/api/weather');
-      const data = await response.json();
-      setCities(data.cities || []);
-    } catch (error) {
-      console.error('Error fetching weather data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addCity = async (cityId) => {
-    try {
-      const response = await fetch(`http://localhost:4000/api/weather/${cityId}`);
-      const cityData = await response.json();
-      
-      // Check if city already exists
-      if (!cities.find(city => city.id === cityData.id)) {
-        setCities(prev => [...prev, cityData]);
+    (async () => {
+      try{
+        const { data } = await axios.get("/api/weather");
+        setCities(data.cities || []);
+      }catch(e){
+        setErr("Failed to load weather");
       }
-    } catch (error) {
-      console.error('Error adding city:', error);
-    }
-  };
-
-  const removeCity = (cityId) => {
-    setCities(prev => prev.filter(city => city.id !== cityId));
-  };
-
-  if (loading) {
-    return (
-      <div className="app">
-        <div className="loading">Loading weather data...</div>
-      </div>
-    );
-  }
+    })();
+  },[]);
 
   return (
-    <div className="app">
-      <Header />
-      <SearchBar onAddCity={addCity} />
-      <WeatherGrid cities={cities} onRemoveCity={removeCity} />
-      <footer className="footer">
-        2021 Fidenz Technologies
-      </footer>
-    </div>
+    <>
+      <div className="bg-clouds" />
+      <div className="container">
+        <Header />
+        {/* Hide SearchBar if you want to strictly follow "no Add City" */}
+        <SearchBar />
+        {err && <p style={{textAlign:"center", color:"#ffb4b4"}}>{err}</p>}
+      </div>
+
+      {selected
+        ? <WeatherDetail data={selected} onBack={() => setSelected(null)} />
+        : <WeatherGrid list={cities} onOpen={setSelected} />
+      }
+    </>
   );
 }
-
-export default App;

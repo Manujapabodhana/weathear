@@ -1,12 +1,8 @@
-import React from 'react';
-
-const Header = () => {
+export default function Header(){
   return (
-    <header className="header">
-      <div className="header-icon">🌤️</div>
-      <h1 className="header-title">Weather App</h1>
-    </header>
+    <div className="header">
+      <span style={{fontSize:24}}>🌤️</span>
+      <div className="brand">Weather App</div>
+    </div>
   );
-};
-
-export default Header;
+}

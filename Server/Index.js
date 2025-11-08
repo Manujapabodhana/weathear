@@ -13,12 +13,6 @@ app.use(express.json());
 
 const cache = new NodeCache({ stdTTL: 300 }); // cache for 5 minutes
 
-// Add cache clear endpoint for development
-app.get("/api/clear-cache", (req, res) => {
-  cache.flushAll();
-  res.json({ message: "Cache cleared" });
-});
-
 // Load city codes from JSON
 const citiesData = JSON.parse(fs.readFileSync("./cities.json", "utf-8"));
 const cityIds = citiesData.List.map(c => c.CityCode);
