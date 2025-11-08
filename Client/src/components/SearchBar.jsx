@@ -1,13 +1,8 @@
-export default function SearchBar({ query, setQuery, onSearch }) {
+export default function SearchBar(){
   return (
-    <form className="toolbar" onSubmit={onSearch}>
-      <input
-        className="input"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Enter a city (e.g., Colombo)"
-      />
-      <button className="btn" type="submit">Search</button>
-    </form>
+    <div className="toolbar">
+      <input className="input" placeholder="Enter a city" disabled />
+      <button className="btn" disabled>Add City</button>
+    </div>
   );
 }
